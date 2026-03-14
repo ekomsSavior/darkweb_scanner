@@ -1,6 +1,6 @@
 # DarkWeb Vulnerability Scanner
 
-**Professional threat intelligence tool for scanning .onion infrastructure**
+**Threat Intel tool for scanning .onion infrastructure**
 
 Developed for legitimate threat intelligence operations, red team assessments, and forensic investigation of dark web infrastructure. This scanner conducts text-only analysis of Tor hidden services to identify security misconfigurations, exposed sensitive files, and indicators of criminal networks.
 
