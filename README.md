@@ -20,10 +20,10 @@ Developed for legitimate threat intelligence operations, red team assessments, a
 git clone https://github.com/ekomsSavior/darkweb_scanner.git
 cd darkweb_scanner
 
-# Install dependencies (no requirements.txt needed)
+# Install dependencies 
 sudo apt update
 sudo apt install tor torify python3-pip -y
-pip3 install stem requests[socks] colorama beautifulsoup4 python-nmap PySocks
+pip3 install stem requests[socks] colorama beautifulsoup4 python-nmap PySocks dnspython --break-system-packages
 
 # Configure Tor for .onion resolution
 sudo nano /etc/tor/torrc
