@@ -1,0 +1,21 @@
+============================================================
+DARKWEB VULNERABILITY SCAN REPORT
+Scan ID: 20260314_174110
+Generated: 2026-03-14 17:44:12
+============================================================
+
+SUMMARY
+----------------------------------------
+Targets with findings: 1
+Total findings: 4
+Severity breakdown:
+  Critical: 0
+  High: 0
+  Medium: 2
+  Low: 0
+  Info: 2
+
+DETAILED FINDINGS
+============================================================
+
+TARGET:
