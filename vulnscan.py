@@ -67,7 +67,7 @@ class DarkWebScannerCLI(cmd.Cmd):
     def show_banner(self):
         print(f"""{MAGENTA}{BOLD}
 ╔════════════════════════════════════════════╗
-║    DARKWEB VULNERABILITY SCANNER v1.0     ║
+║    DARKWEB VULNERABILITY SCANNER v1.0      ║
 ║         INTERACTIVE THREAT INTEL           ║
 ╚════════════════════════════════════════════╝{RESET}
         """)
