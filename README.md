@@ -88,6 +88,13 @@ vulnscan> report json
 vulnscan> exit
 ```
 
+## Customizing Wordlists
+
+**You should customize these for your specific targets.** Threat actors change their language, directory structures, and hiding spots. A wordlist that worked last month might miss things today.
+
+The scanner loads these files at startup. No code changes needed—just edit and re-run.
+---
+
 ## Post-Scan Exploitation & Intelligence Gathering Guide
 
 After identifying vulnerabilities with the scanner, here are manual techniques and tool recommendations to further investigate darkweb sites across different technology stacks.
