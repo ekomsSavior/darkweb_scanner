@@ -20,10 +20,12 @@ from core.report_builder import ReportBuilder
 
 # Import checks
 from checks import (
+    SiteChecker,
     SecurityHeadersCheck,
     SensitiveFilesCheck,
     Com764Detector,
     FingerprintCheck,
+    TechStackCheck,
     DirectoryListingCheck,
     SessionIDTracker,
     IdentityExtractorCheck,
@@ -34,6 +36,12 @@ from checks import (
     CookieAnalyzerCheck,
     WAFDetectorCheck,
     PageMetadataCheck,
+    SSLAnalyzerCheck,
+    HTTPMethodCheck,
+    CORSCheck,
+    OpenRedirectCheck,
+    CloneDetectorCheck,
+    PGPExtractorCheck,
 )
 
 # Colors
@@ -48,22 +56,30 @@ BOLD = '\033[1m'
 DIM = '\033[2m'
 
 def build_checks():
-    """Build and return all check instances"""
+    """Build and return all check instances — 21 checks"""
     return [
+        SiteChecker(),
+        CloneDetectorCheck(),
         PageMetadataCheck(),
         SecurityHeadersCheck(),
+        SSLAnalyzerCheck(),
         FingerprintCheck(),
+        TechStackCheck(),
         CookieAnalyzerCheck(),
         WAFDetectorCheck(),
+        HTTPMethodCheck(),
+        CORSCheck(),
         RobotsSitemapCheck(),
         SensitiveFilesCheck(wordlist_path="wordlists/sensitive_paths.txt"),
         DirectoryListingCheck(),
+        OpenRedirectCheck(),
         FormDetectorCheck(),
         JSExtractorCheck(),
         LinkCrawlerCheck(),
         Com764Detector(wordlist_path="wordlists/com764_keywords.txt"),
         SessionIDTracker(),
         IdentityExtractorCheck(),
+        PGPExtractorCheck(),
     ]
 
 
@@ -124,7 +140,7 @@ class DarkWebScannerCLI(cmd.Cmd):
                                           ░{RESET}
 {CYAN}{BOLD}  ╔═══════════════════════════════════════════════════╗
   ║   DARKWEB VULNERABILITY SCANNER v2.0               ║
-  ║   14 checks · crawler · batch mode · crash recovery ║
+  ║   22 checks · crawler · batch mode · crash recovery  ║
   ╚═══════════════════════════════════════════════════════╝{RESET}
         """)
 

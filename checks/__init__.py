@@ -13,13 +13,23 @@ from .form_detector import FormDetectorCheck
 from .cookie_analyzer import CookieAnalyzerCheck
 from .waf_detector import WAFDetectorCheck
 from .page_metadata import PageMetadataCheck
+from .site_checker import SiteChecker
+from .tech_stack import TechStackCheck
+from .ssl_analyzer import SSLAnalyzerCheck
+from .http_methods import HTTPMethodCheck
+from .cors_check import CORSCheck
+from .open_redirect import OpenRedirectCheck
+from .clone_detector import CloneDetectorCheck
+from .pgp_extractor import PGPExtractorCheck
 
 __all__ = [
     'BaseCheck',
+    'SiteChecker',
     'SecurityHeadersCheck',
     'SensitiveFilesCheck',
     'Com764Detector',
     'FingerprintCheck',
+    'TechStackCheck',
     'DirectoryListingCheck',
     'SessionIDTracker',
     'IdentityExtractorCheck',
@@ -30,4 +40,10 @@ __all__ = [
     'CookieAnalyzerCheck',
     'WAFDetectorCheck',
     'PageMetadataCheck',
+    'SSLAnalyzerCheck',
+    'HTTPMethodCheck',
+    'CORSCheck',
+    'OpenRedirectCheck',
+    'CloneDetectorCheck',
+    'PGPExtractorCheck',
 ]

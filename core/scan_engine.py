@@ -123,11 +123,90 @@ class ScanEngine:
         self.scan_in_progress = False
         return self.results
 
+    def _check_rate_limit(self, target, tor_session):
+        """Detect if the target is rate-limiting or blocking us"""
+        url = target if target.startswith('http') else 'http://' + target
+        timeout = self.scan_config.get('timeout', 15)
+
+        resp = tor_session.get(url, timeout=timeout)
+        if not resp:
+            return 'unreachable'
+
+        # Common rate limit / block indicators
+        if resp.status_code == 429:
+            retry_after = resp.headers.get('Retry-After', 'unknown')
+            print(f"    \033[93m[!] RATE LIMITED (429) — Retry-After: {retry_after}\033[0m")
+            return 'rate_limited'
+
+        if resp.status_code == 403:
+            block_sigs = ['blocked', 'forbidden', 'access denied', 'ban',
+                           'captcha', 'challenge', 'cloudflare', 'ddos-guard']
+            if resp.text and any(sig in resp.text.lower() for sig in block_sigs):
+                print(f"    \033[91m[!] BLOCKED (403 with block signature)\033[0m")
+                return 'blocked'
+
+        if resp.status_code == 503:
+            if resp.text and ('captcha' in resp.text.lower() or 'challenge' in resp.text.lower()):
+                print(f"    \033[93m[!] CAPTCHA/CHALLENGE detected (503)\033[0m")
+                return 'captcha'
+
+        return 'ok'
+
     def scan_target(self, target: str) -> Dict[str, Any]:
         """Scan a single target with all registered checks"""
         findings = []
 
         print(f"\n[*] Scanning: {target}")
+
+        # Pre-scan rate limit check
+        status = self._check_rate_limit(target, self.tor_session)
+        if status == 'unreachable':
+            print(f"    \033[91m[!] Target unreachable — skipping\033[0m")
+            findings.append({
+                'check': 'Rate Limit Detection',
+                'severity': 'error',
+                'finding': 'Target unreachable',
+                'detail': 'Could not connect to target before scan started',
+                'url': target
+            })
+            self.report_builder.add_findings(target, findings)
+            self.stats['targets_scanned'] += 1
+            return {'target': target, 'timestamp': time.time(), 'findings': findings}
+
+        if status == 'rate_limited':
+            print(f"    \033[93m[!] Rate limited — rotating circuit and waiting 15s...\033[0m")
+            self.tor_session.rotate_circuit()
+            time.sleep(15)
+            findings.append({
+                'check': 'Rate Limit Detection',
+                'severity': 'high',
+                'finding': 'Target rate-limiting detected (429)',
+                'detail': 'Rotated Tor circuit and paused before continuing',
+                'url': target
+            })
+
+        if status == 'blocked':
+            print(f"    \033[91m[!] Blocked — rotating circuit...\033[0m")
+            self.tor_session.rotate_circuit()
+            time.sleep(10)
+            findings.append({
+                'check': 'Rate Limit Detection',
+                'severity': 'critical',
+                'finding': 'Target actively blocking scanner (403 + block signature)',
+                'detail': 'Rotated Tor circuit — subsequent checks may fail',
+                'url': target
+            })
+
+        if status == 'captcha':
+            findings.append({
+                'check': 'Rate Limit Detection',
+                'severity': 'high',
+                'finding': 'CAPTCHA/challenge page detected (503)',
+                'detail': 'Target requires human verification — automated scanning limited',
+                'url': target
+            })
+
+        consecutive_failures = 0
 
         for check in self.checks:
             if hasattr(check, 'enabled') and not check.enabled:
@@ -146,6 +225,9 @@ class ScanEngine:
                     for f in check_findings:
                         severity = f.get('severity', 'info').upper()
                         print(f"    [{severity}] {f.get('finding', 'No details')}")
+                    consecutive_failures = 0
+                else:
+                    consecutive_failures = 0
 
                 self.stats['checks_run'] += 1
                 logger.info(f"{check.name} completed on {target}")
@@ -157,6 +239,21 @@ class ScanEngine:
                     'severity': 'error',
                     'finding': f"Check failed: {str(e)}"
                 })
+                consecutive_failures += 1
+
+                # If 3+ checks fail in a row, we're probably being blocked
+                if consecutive_failures >= 3:
+                    print(f"    \033[91m[!] 3+ consecutive failures — target may be blocking. Rotating circuit.\033[0m")
+                    self.tor_session.rotate_circuit()
+                    time.sleep(10)
+                    consecutive_failures = 0
+                    findings.append({
+                        'check': 'Rate Limit Detection',
+                        'severity': 'high',
+                        'finding': 'Multiple consecutive check failures — possible blocking',
+                        'detail': 'Rotated Tor circuit after 3 consecutive failures',
+                        'url': target
+                    })
 
         # Add findings to report builder
         self.report_builder.add_findings(target, findings)
