@@ -1,25 +1,79 @@
+# Com/764 & CSAM Keywords — sourced from CAHN, FBI, and Europol advisories
+# These supplement the built-in detector keywords
+# Lines starting with # are ignored
+
+# === Direct CSAM indicators ===
+cp video
+cp forum
+cp links
+cp collection
+child exploitation
+child abuse material
+csam
+mpeg child
+pthc video
+ptsc video
+
+# === Predator code words ===
+pizza party
+walnut sauce
+map pride
+nomap
+youthful
+young content
+fresh content
+rare content
+hard candy
+
+# === Com/764 network identifiers ===
+order of nine angles
+o9a
+tempel ov blood
+siege culture
+atomwaffen
+bowl gang
+bowl patrol
+
+# === Platform-specific trade language ===
 mega link
-thothub
-telegram
-discord
-session messenger
-signal
-wickr
-wire
-threema
-matrix
-irc
-xmpp
-keybase
-protonmail
-cock.li
-dnmx
-firemail
-onion mail
-darknet market
-hidden service
-private board
-invite only
-verified
-capture
-baiting
+mega folder
+mega.nz
+anonfiles
+gofile
+send.cm
+private trade
+dm to trade
+trading group
+verified seller
+
+# === Sextortion / coercion ===
+cap and trade
+capping
+recording bait
+omegle bait
+ome.tv bait
+bait room
+slave recruitment
+e-pimp
+e-whore
+ewhore
+
+# === Age references in exploitation context ===
+yo girl
+yo boy
+12yo
+13yo
+14yo
+10yo
+11yo
+young teen
+preteen model
+nn model
+non-nude model
+
+# === Hosting / distribution ===
+onion link dump
+hidden wiki
+dark scandals
+tor links child
+pedo links
