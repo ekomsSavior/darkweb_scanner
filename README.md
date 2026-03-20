@@ -7,11 +7,15 @@ Developed for legitimate threat intelligence operations, red team assessments, a
 ## Features
 
 - Full Tor integration with SOCKS5 proxy support
-- Modular vulnerability checking system
-- Interactive CLI for real-time control
-- No media download - text-only analysis
-- Circuit rotation for operational security
-- Multi-format reporting (JSON, text, CSV)
+- 22 modular vulnerability checks — enable/disable individually
+- Interactive CLI + non-interactive batch mode
+- No media download — text-only analysis
+- Circuit rotation with User-Agent randomization
+- Rate limit and ban detection with auto-recovery
+- Crash recovery — resume interrupted scans
+- Multi-format reporting (JSON, text, CSV, Markdown)
+- Cross-site identity correlation (emails, wallets, Session IDs, PGP keys)
+- Context-aware CSAM/Com764 detection with false positive filtering
 
 ## Quick Installation
 
@@ -20,10 +24,10 @@ Developed for legitimate threat intelligence operations, red team assessments, a
 git clone https://github.com/ekomsSavior/darkweb_scanner.git
 cd darkweb_scanner
 
-# Install dependencies 
+# Install dependencies
 sudo apt update
 sudo apt install tor torify python3-pip -y
-pip3 install stem requests[socks] colorama beautifulsoup4 python-nmap PySocks dnspython --break-system-packages
+pip3 install -r requirements.txt --break-system-packages
 
 # Configure Tor for .onion resolution
 sudo nano /etc/tor/torrc
@@ -51,52 +55,307 @@ sudo systemctl enable tor
 
 ## Usage
 
+### Interactive Mode
+
 Start the scanner:
 ```bash
 python3 vulnscan.py
 ```
 
+### Batch Mode
+
+Run without interaction:
+```bash
+# Single target
+python3 vulnscan.py -t http://target.onion --batch
+
+# Target list
+python3 vulnscan.py -T targets.txt --batch
+
+# Full options
+python3 vulnscan.py -T targets.txt --batch -d 2 --delay 2 --timeout 20 -r all
+```
+
+Batch mode flags:
+
+| Flag | Description |
+|------|-------------|
+| `-t <url>` | Single target URL |
+| `-T <file>` | Target list file (one per line) |
+| `-d <n>` | Crawl depth (default: 1) |
+| `--delay <n>` | Delay between requests in seconds |
+| `--timeout <n>` | Request timeout in seconds |
+| `-r <fmt>` | Report format: json, text, csv, md, all |
+| `--batch` | Run non-interactive |
+
 ### Available Commands
 
 | Command | Description |
 |---------|-------------|
+| **Target Management** | |
 | `targets` | Show all loaded targets |
 | `add <url>` | Add a target .onion URL |
 | `load <file>` | Load targets from file (one per line) |
 | `remove <n>` | Remove target by number |
-| `checks` | List all available vulnerability checks |
-| `enable <n>` | Enable a specific check |
-| `disable <n>` | Disable a specific check |
-| `config` | Show current scan configuration |
-| `set <key> <val>` | Set configuration value (delay, threads, timeout) |
-| `scan` | Start scanning all loaded targets |
-| `report [fmt]` | Generate report (text, json, csv) |
 | `clear` | Clear all targets |
+| **Check Control** | |
+| `checks` | List all 22 checks with on/off status |
+| `enable <n\|all>` | Enable a check or all checks |
+| `disable <n\|all>` | Disable a check or all checks |
+| `only <1,5,7>` | Enable ONLY listed checks, disable the rest |
+| **Configuration** | |
+| `config` | Show current scan configuration |
+| `set <key> <val>` | Set config value (delay, threads, timeout, max_depth, etc.) |
+| **Scanning** | |
+| `scan` | Start scanning all loaded targets |
+| `quickscan <url>` | One-command scan of a single target |
+| `resume` | Resume an interrupted scan |
+| **Reports & Intel** | |
+| `report [fmt]` | Generate report (text, json, csv, md, all) |
+| `identifiers` | Show all extracted identifiers with cross-site flags |
+| **OPSEC** | |
 | `rotate` | Manually rotate Tor circuit |
-| `status` | Show scanner status |
+| `status` | Show scanner status, circuit count, interrupted scans |
 | `exit` | Exit the scanner |
 
 ### Example Workflow
 
 ```
 vulnscan> add http://target.onion
-vulnscan> targets
 vulnscan> checks
+vulnscan> only 1,2,3,5,8,12
 vulnscan> set delay 2
+vulnscan> set max_depth 2
 vulnscan> scan
-vulnscan> report json
+vulnscan> identifiers
+vulnscan> report all
 vulnscan> exit
 ```
+
+### Quick Scan
+
+```
+vulnscan> quickscan http://target.onion
+```
+
+Clears targets, scans one URL with all enabled checks, done.
+
 ---
 
+## All 22 Checks
+
+The scanner runs checks in this order. Each can be toggled on/off independently.
+
+### Reconnaissance
+
+| # | Check | Description |
+|---|-------|-------------|
+| 1 | **Site Checker** | Verifies target is reachable before wasting time on other checks |
+| 2 | **Clone/Mirror Detector** | SHA256 + structural hashing to detect duplicate sites across targets |
+| 3 | **Page Metadata** | Extracts titles, meta tags, author disclosure, language/timezone hints, HTML comments, error page fingerprinting |
+
+### Infrastructure Analysis
+
+| # | Check | Description |
+|---|-------|-------------|
+| 4 | **HTTP Security Headers** | HSTS, CSP (with strength analysis), X-Frame-Options, Cache-Control, 15+ info-leak headers |
+| 5 | **SSL/TLS Certificate Analyzer** | Extracts real domains, org names, SANs from certs. Detects .onion→clearnet redirects |
+| 6 | **Technology Fingerprint** | CMS detection (WordPress, Drupal, Joomla) and server software from headers/HTML |
+| 7 | **Tech Stack Analysis** | Programming languages, frameworks, libraries from headers and page content |
+| 8 | **Cookie Analyzer** | Security flags (Secure, HttpOnly, SameSite), session tokens, tracking cookies |
+| 9 | **WAF Detector** | Identifies Cloudflare, Akamai, ModSecurity, Sucuri, Imperva + active SQLi blocking test |
+| 10 | **HTTP Method Enumeration** | Probes PUT, DELETE, TRACE, OPTIONS for dangerous methods |
+| 11 | **CORS Misconfiguration** | Tests wildcard origins, origin reflection, null origin acceptance, credential leaks |
+
+### Vulnerability Scanning
+
+| # | Check | Description |
+|---|-------|-------------|
+| 12 | **Robots & Sitemap Intel** | Parses robots.txt disallowed paths and sitemap.xml URLs — what admins hide |
+| 13 | **Sensitive Files** | 160+ paths (.git, .env, backups, configs, admin panels) with SPA false-positive filtering |
+| 14 | **Directory Listing** | Tests 13 common directories for open directory browsing |
+| 15 | **Open Redirect Detection** | Tests 15 redirect parameters and 12 redirect endpoints with canary URL |
+| 16 | **Form Detector** | Finds login forms, file upload forms, hidden inputs (CSRF tokens, session IDs) |
+| 17 | **JavaScript Analyzer** | Extracts API endpoints, hardcoded keys/tokens/credentials, WebSocket URLs, referenced domains |
+
+### Content & Intelligence
+
+| # | Check | Description |
+|---|-------|-------------|
+| 18 | **Link Crawler** | Follows links to configurable depth, discovers .onion references, flags interesting paths |
+| 19 | **Com/764 Network Detector** | Context-aware CSAM keyword detection with false positive filtering. 70+ keywords from CAHN/FBI/Europol |
+| 20 | **Session ID Tracker** | Extracts Session messenger IDs and correlates across targets |
+| 21 | **Identity Extractor** | Emails, BTC/ETH/XMR wallets, Telegram, Discord, Wickr, PGP fingerprints, .onion links — all cross-site correlated |
+| 22 | **PGP Key Extractor** | Full PGP public key blocks, fingerprints, UIDs (Name \<email\>), key IDs, keyserver references |
+
+---
+
+## Scan Engine Features
+
+### Rate Limit & Ban Detection
+
+The scan engine automatically detects when a target is fighting back:
+
+- **429 Too Many Requests** — pauses 15 seconds, rotates Tor circuit, continues
+- **403 + block signature** — detects WAF blocks (Cloudflare, DDoS-Guard, etc.), rotates circuit
+- **503 + captcha/challenge** — flags the target as requiring human verification
+- **3+ consecutive check failures** — assumes blocking, rotates circuit automatically
+
+### Crash Recovery
+
+Scan state is saved to `state/scan_state.json` after every target. If the process dies:
+
+```
+$ python3 vulnscan.py
+[!] Interrupted scan detected from 2025-03-20 14:32:01
+    15/40 targets completed, 25 remaining
+    Resume? (y/n):
+```
+
+Type `y` to pick up where you left off. Type `n` to discard and start fresh.
+
+### Circuit Rotation & User-Agent Randomization
+
+- Tor circuits rotate every N requests (configurable, default 10)
+- User-Agent string randomizes on every circuit rotation
+- Manual rotation: `rotate` command
+- All configurable via `config/settings.py`
+
+---
+
+## Reporting
+
+Four report formats, generated to the `reports/` directory:
+
+### Markdown (`report md`)
+Human-readable with severity icons, findings grouped by check, cross-site identifier correlation section.
+
+### JSON (`report json`)
+Machine-readable with full metadata, summary, cross-site identifiers, and all finding data.
+
+### Text (`report text`)
+Plain text with severity tags, cross-site section, detailed findings per target.
+
+### CSV (`report csv`)
+Spreadsheet format: Target, Check, Severity, Finding, Detail, URL.
+
+### All at once (`report all`)
+Generates JSON + text + CSV + Markdown simultaneously.
+
+---
+
+## Cross-Site Identity Correlation
+
+When scanning multiple targets, the scanner tracks identifiers across sites:
+
+- Same email on two .onion sites = likely same operator
+- Same BTC wallet = same financial backend
+- Same Session ID = same person active on both sites
+- Same PGP fingerprint = cryptographic proof of identity linkage
+
+The `identifiers` command shows everything extracted with cross-site flags. Reports include a dedicated cross-site correlation section.
+
+---
 
 ## Customizing Wordlists
 
-**You should customize these for your specific targets.** 
+**You should customize these for your specific targets.**
 
 Threat actors change their language, directory structures, and hiding spots. A wordlist that worked last month might miss things today.
 
+### `wordlists/sensitive_paths.txt`
+160+ file paths to probe. Add your own — one path per line, `#` for comments.
+
+### `wordlists/com764_keywords.txt`
+70+ CSAM/exploitation keywords from CAHN, FBI, and Europol advisories. Supplements the built-in detector keywords.
+
 The scanner loads these files at startup. No code changes needed—just edit and re-run.
+
+---
+
+## Configuration
+
+Edit `config/settings.py` for persistent changes:
+
+```python
+# Tor connection
+TOR_PROXY_PORT = 9050
+TOR_CONTROL_PORT = 9051
+TOR_PASSWORD = None  # Set if using password auth
+
+# Scan defaults
+DEFAULT_SCAN_CONFIG = {
+    'delay': 1,           # Seconds between requests
+    'threads': 1,         # 1 = sequential
+    'timeout': 15,        # Request timeout
+    'rotate_circuit_every': 10,
+    'max_depth': 1,       # Crawl depth (1 = homepage only)
+    'follow_redirects': True,
+    'verify_ssl': False,
+}
+```
+
+Or set values at runtime:
+```
+vulnscan> set delay 3
+vulnscan> set max_depth 2
+vulnscan> set timeout 20
+```
+
+---
+
+## Project Structure
+
+```
+darkweb_scanner/
+├── vulnscan.py                  # CLI + batch mode entry point
+├── requirements.txt             # pip dependencies
+├── config/
+│   └── settings.py              # Tor, scan defaults, User-Agents
+├── core/
+│   ├── tor_session.py           # SOCKS5 proxy, circuit rotation, UA randomization
+│   ├── scan_engine.py           # Orchestration, rate limit detection, crash recovery
+│   ├── scan_state.py            # State persistence for crash recovery
+│   ├── target_manager.py        # Target loading/management
+│   └── report_builder.py        # JSON/text/CSV/Markdown export
+├── checks/
+│   ├── base_check.py            # Abstract base class
+│   ├── site_checker.py          # Reachability check
+│   ├── clone_detector.py        # Duplicate site detection
+│   ├── page_metadata.py         # Titles, meta, language, timezone, comments
+│   ├── security_headers.py      # Headers + CSP analysis + cache + info leaks
+│   ├── ssl_analyzer.py          # TLS cert intel extraction
+│   ├── fingerprint.py           # CMS/server detection
+│   ├── tech_stack.py            # Framework/language detection
+│   ├── cookie_analyzer.py       # Cookie security audit
+│   ├── waf_detector.py          # WAF identification + active test
+│   ├── http_methods.py          # PUT/DELETE/TRACE enumeration
+│   ├── cors_check.py            # CORS misconfiguration testing
+│   ├── robots_sitemap.py        # robots.txt + sitemap.xml parsing
+│   ├── sensitive_files.py       # 160+ path enumeration with SPA filtering
+│   ├── directory_listing.py     # Open directory detection
+│   ├── open_redirect.py         # Redirect vulnerability testing
+│   ├── form_detector.py         # Login/upload/hidden input detection
+│   ├── js_extractor.py          # JS endpoint/key/credential extraction
+│   ├── link_crawler.py          # Link following + .onion discovery
+│   ├── com764_detector.py       # Context-aware CSAM detection
+│   ├── session_id_tracker.py    # Session messenger ID correlation
+│   ├── identity_extractor.py    # Multi-identifier extraction + correlation
+│   ├── pgp_extractor.py         # PGP key block/fingerprint extraction
+│   └── port_scan.py             # Optional nmap via proxychains (disabled)
+├── wordlists/
+│   ├── sensitive_paths.txt      # 160+ sensitive file paths
+│   └── com764_keywords.txt      # 70+ CSAM/Com764 keywords
+├── data/
+│   ├── targets.txt              # Sample targets
+│   └── exclude_list.txt         # Safe URLs to skip
+├── reports/                     # Generated scan reports
+├── state/                       # Crash recovery state files
+└── utils/
+    ├── helpers.py               # URL normalization, risk scoring
+    ├── validators.py            # .onion validation, input sanitization
+    └── parsers.py               # PDF/JSON parsing, identifier extraction
+```
 
 ---
 
@@ -151,6 +410,31 @@ EOF
 # Serve it locally and access through Tor Browser
 python3 -m http.server 8080
 # Then visit http://127.0.0.1:8080/clickjack_test.html in Tor Browser
+```
+
+#### CORS Misconfiguration
+If the scanner flags wildcard or reflected origins:
+
+```bash
+# Test origin reflection
+curl -H "Origin: https://evil.com" -I --proxy socks5h://127.0.0.1:9050 http://target.onion/api/
+
+# Check for credential leakage with CORS
+curl -H "Origin: https://evil.com" --proxy socks5h://127.0.0.1:9050 http://target.onion/api/user -v 2>&1 | grep -i "access-control"
+
+# Test null origin (sandboxed iframe bypass)
+curl -H "Origin: null" -I --proxy socks5h://127.0.0.1:9050 http://target.onion/api/
+```
+
+#### Open Redirect
+If the scanner finds open redirects:
+
+```bash
+# Verify the redirect manually
+curl -I --proxy socks5h://127.0.0.1:9050 "http://target.onion/login?next=https://evil.com"
+
+# Chain with XSS for credential theft
+# http://target.onion/redirect?url=javascript:alert(document.cookie)
 ```
 
 ---
@@ -485,43 +769,6 @@ cat > tech_paths.txt << EOF
 EOF
 
 gobuster dir -u http://target.onion -w tech_paths.txt -t 5
-
-# Custom wordlist for dark web sites
-cat > darkweb_paths.txt << EOF
-/forum
-/board
-/images
-/src
-/upload
-/files
-/dark
-/private
-/hidden
-/secure
-/vault
-/cloud
-/storage
-/share
-/ exchange
-/trade
-/market
-/shop
-/store
-/vendor
-/cp
-/lolita
-/pedo
-/764
-/cult
-/teen
-/young
-/child
-/preteen
-/nsfl
-/gore
-EOF
-
-gobuster dir -u http://target.onion -w darkweb_paths.txt -t 5
 ```
 
 ---
@@ -542,12 +789,10 @@ done
 for cred in admin:admin admin:password admin:123456 administrator:admin root:root; do
   username=$(echo $cred | cut -d: -f1)
   password=$(echo $cred | cut -d: -f2)
-  
+
   # For basic auth
   curl -u $username:$password --proxy socks5h://127.0.0.1:9050 \
     "http://target.onion/admin/" -I
-  
-  # For login forms, you'd need to POST - this is just an example
 done
 
 # Test common CMS logins
@@ -824,7 +1069,8 @@ This tool is designed for legitimate security assessments, threat intelligence o
 
 - All traffic routes through Tor SOCKS5 proxy
 - No media files are downloaded
-- Circuit rotation prevents correlation
+- Circuit rotation with User-Agent randomization prevents correlation
+- Rate limit detection auto-rotates circuits when blocked
 - Configurable delays prevent denial of service
 - Text-only analysis only
-
+- Crash recovery preserves state without exposing scan data
