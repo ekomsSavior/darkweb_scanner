@@ -39,10 +39,19 @@ class RobotsSitemapCheck(BaseCheck):
                     if path:
                         allowed.append(path)
                 elif lower.startswith('sitemap:'):
-                    sitemap_url = line.split(':', 1)[1].strip()
-                    # Handle 'sitemap: http://...' vs 'sitemap:http://...'
+                    # FIX: `line.split(':', 1)[1]` on "Sitemap: https://example.com"
+                    # produces " https://example.com". That's fine after strip().
+                    # But the old fallback `'http:' + sitemap_url` would produce
+                    # "http: https://..." for any URL that somehow didn't start with
+                    # http after strip. Instead, use the full value after "Sitemap:"
+                    # and only prepend scheme if truly missing.
+                    sitemap_raw = line.split(':', 1)[1].strip()
+                    # "Sitemap: https://x.onion/sitemap.xml" -> split on first ":"
+                    # gives "//x.onion/sitemap.xml" because it split on "Sitemap:".
+                    # Need to rejoin from the original line instead.
+                    sitemap_url = line[len('sitemap:'):].strip() if lower.startswith('sitemap:') else sitemap_raw
                     if not sitemap_url.startswith('http'):
-                        sitemap_url = 'http:' + sitemap_url
+                        sitemap_url = base + '/' + sitemap_url.lstrip('/')
                     sitemaps.append(sitemap_url)
                 elif lower.startswith('crawl-delay:'):
                     try:

@@ -186,7 +186,7 @@ class DarkWebScannerCLI(cmd.Cmd):
                 print(f"{GREEN}[+] Removed target {arg}{RESET}")
             else:
                 print(f"{RED}Error: Invalid number{RESET}")
-        except:
+        except (ValueError, IndexError):
             print(f"{RED}Error: Invalid number{RESET}")
 
     def do_clear(self, arg):
@@ -217,7 +217,7 @@ class DarkWebScannerCLI(cmd.Cmd):
             idx = int(arg) - 1
             self.scan_engine.checks[idx].enabled = True
             print(f"{GREEN}[+] Enabled {self.scan_engine.checks[idx].name}{RESET}")
-        except:
+        except (ValueError, IndexError):
             print(f"{RED}Error: Invalid number{RESET}")
 
     def do_disable(self, arg):
@@ -231,7 +231,7 @@ class DarkWebScannerCLI(cmd.Cmd):
             idx = int(arg) - 1
             self.scan_engine.checks[idx].enabled = False
             print(f"{YELLOW}[-] Disabled {self.scan_engine.checks[idx].name}{RESET}")
-        except:
+        except (ValueError, IndexError):
             print(f"{RED}Error: Invalid number{RESET}")
 
     def do_only(self, arg):
@@ -245,7 +245,7 @@ class DarkWebScannerCLI(cmd.Cmd):
                     self.scan_engine.checks[idx].enabled = True
             enabled = [c.name for c in self.scan_engine.checks if c.enabled]
             print(f"{GREEN}[+] Enabled only: {', '.join(enabled)}{RESET}")
-        except:
+        except (ValueError, IndexError):
             print(f"{RED}Usage: only 1,5,7{RESET}")
 
     # === Configuration ===
@@ -271,7 +271,7 @@ class DarkWebScannerCLI(cmd.Cmd):
                 value = value.lower() in ('true', '1', 'yes')
             self.scan_engine.set_config(**{key: value})
             print(f"{GREEN}[+] {key} = {value}{RESET}")
-        except:
+        except (ValueError, TypeError, KeyError):
             print(f"{RED}Error setting {key}{RESET}")
 
     # === Scanning ===

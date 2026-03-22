@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
@@ -27,6 +28,10 @@ class ScanEngine:
         self.scan_in_progress = False
         self.results = {}
         self.scan_state = ScanState()
+        # FIX: Lock for thread-safe access to shared state during parallel scans.
+        # Without this, scan_all_parallel() corrupts self.stats, self.results,
+        # and report_builder.findings because multiple threads write concurrently.
+        self._lock = threading.Lock()
 
     def register_check(self, check: 'BaseCheck'):
         """Register a vulnerability check"""
@@ -255,11 +260,14 @@ class ScanEngine:
                         'url': target
                     })
 
-        # Add findings to report builder
-        self.report_builder.add_findings(target, findings)
-
-        self.stats['targets_scanned'] += 1
-        self.stats['findings_count'] += len(findings)
+        # Add findings to report builder.
+        # FIX: Use lock to prevent concurrent threads from corrupting shared state.
+        # stats dict and report_builder.findings are accessed from multiple threads
+        # in scan_all_parallel() without synchronization.
+        with self._lock:
+            self.report_builder.add_findings(target, findings)
+            self.stats['targets_scanned'] += 1
+            self.stats['findings_count'] += len(findings)
 
         return {
             'target': target,
