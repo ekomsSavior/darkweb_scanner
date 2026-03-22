@@ -13,8 +13,14 @@ class TargetManager:
     def load_from_file(self, filename: str) -> List[str]:
         """Load targets from a text file (one per line)"""
         try:
+            # FIX: Previously this replaced self.targets entirely, meaning
+            # any targets added via add_target() before loading a file were lost.
+            # Now we extend the existing list and deduplicate.
             with open(filename, 'r') as f:
-                self.targets = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+                new_targets = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+                for target in new_targets:
+                    if target not in self.targets:
+                        self.targets.append(target)
             logger.info(f"Loaded {len(self.targets)} targets from {filename}")
             return self.targets
         except Exception as e:
@@ -38,8 +44,7 @@ class TargetManager:
             return []
     
     def add_target(self, target: str, metadata: Dict = None):
-        """Add a single target with optional metadata - NO FUCKING VALIDATION"""
-        # Strip whitespace and just add the damn thing
+        """Add a single target with optional metadata"""
         target = target.strip()
         if not target:
             return
@@ -91,7 +96,9 @@ class TargetManager:
                 # Simple extraction of .onion URLs
                 import re
                 content = f.read()
-                onion_urls = re.findall(r'[a-zA-Z0-9]{56}\.onion', content)
+                # FIX: Onion v3 addresses use base32 encoding (a-z, 2-7), not
+                # the full alphanumeric range. Also match v2 (16 chars).
+                onion_urls = re.findall(r'[a-z2-7]{16,56}\.onion', content)
                 for url in onion_urls:
                     self.add_target(f"http://{url}")
             logger.info(f"Imported {len(onion_urls)} targets from intel report")

@@ -1,5 +1,6 @@
 from .base_check import BaseCheck
 import hashlib
+import re
 
 class CloneDetectorCheck(BaseCheck):
     """Detect if multiple targets serve identical content (same operator, different front doors)"""
@@ -25,9 +26,10 @@ class CloneDetectorCheck(BaseCheck):
         content = resp.text.strip()
         content_hash = hashlib.sha256(content.encode('utf-8', errors='ignore')).hexdigest()
 
-        # Structural hash — strip variable content (timestamps, tokens, nonces)
+        # Structural hash - strip variable content (timestamps, tokens, nonces)
         # and hash the DOM structure only
-        import re
+        # FIX: moved `import re` to module level (was inside run(), called every scan)
+
         # Remove numbers that look like timestamps/IDs
         structural = re.sub(r'\d{10,}', 'NUM', content)
         # Remove hex tokens

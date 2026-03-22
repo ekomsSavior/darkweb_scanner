@@ -26,9 +26,14 @@ class SiteChecker(BaseCheck):
         
         # Check for Tor error pages
         if resp.text:
+            # FIX: Removed "404 not found" from error signatures.
+            # Plenty of live sites contain "404 not found" text somewhere
+            # in their HTML (footers, help pages, error handling docs).
+            # A site returning HTTP 200 with valid content that mentions "404"
+            # would be incorrectly marked as unreachable.
+            # Only check for actual Tor-specific error messages.
             error_signatures = [
                 "unable to connect to the tor hidden service",
-                "404 not found", 
                 "onion site not available",
                 "no such onion site",
                 "this onion site is not available"

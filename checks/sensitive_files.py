@@ -61,7 +61,7 @@ class SensitiveFilesCheck(BaseCheck):
         if resp and resp.status_code == 200:
             return {
                 'size': len(resp.content),
-                'hash': hashlib.md5(resp.content).hexdigest()
+                'hash': hashlib.sha256(resp.content).hexdigest()
             }
         return None
 
