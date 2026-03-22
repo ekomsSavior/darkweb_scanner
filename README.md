@@ -53,6 +53,24 @@ sudo systemctl restart tor
 sudo systemctl enable tor
 ```
 
+### Environment Variables
+
+The scanner reads Tor connection settings from environment variables. Set these if your Tor setup differs from the defaults:
+
+```bash
+# Tor SOCKS proxy port (default: 9050)
+export TOR_PROXY_PORT=9050
+
+# Tor control port (default: 9051)
+export TOR_CONTROL_PORT=9051
+
+# Tor control password (default: none, uses cookie auth)
+# Set this if you configured HashedControlPassword in torrc
+export TOR_PASSWORD=yourpassword
+```
+
+If no password is set, the scanner will try cookie authentication first, then fall back to unauthenticated access.
+
 ## Usage
 
 ### Interactive Mode
