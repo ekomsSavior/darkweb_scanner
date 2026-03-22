@@ -41,8 +41,17 @@ class ReportBuilder:
         print(f"[+] Scan completed in {self.metadata['duration']:.2f} seconds")
 
     def add_findings(self, target, findings):
+        """Add findings for a target.
+
+        FIX: Previously this replaced findings with `self.findings[target] = findings`,
+        which meant rescanning a target (or resuming a scan) would silently discard
+        all previous findings for that target. Now we extend the existing list.
+        The total_findings counter is also fixed to only count new findings.
+        """
         if findings:
-            self.findings[target] = findings
+            if target not in self.findings:
+                self.findings[target] = []
+            self.findings[target].extend(findings)
             self.metadata['total_findings'] += len(findings)
             self.metadata['target_count'] = len(self.findings)
 

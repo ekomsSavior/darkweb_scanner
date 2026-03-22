@@ -104,8 +104,13 @@ class WAFDetectorCheck(BaseCheck):
             if detected:
                 detected_wafs.append(waf_name)
 
-        # Also try a malicious-looking request to trigger WAF
-        trigger_url = url.rstrip('/') + "/?id=1'+OR+1=1--"
+        # Send a request that looks suspicious to WAFs but is harmless.
+        # FIX: Previously this sent a real SQL injection payload (?id=1'+OR+1=1--).
+        # If the target had no WAF, this could actually exploit a vulnerable parameter.
+        # A scanner should probe for WAF presence, not attack the target.
+        # Using a clearly fake path with suspicious keywords is enough to trigger
+        # WAF rules without risking actual exploitation.
+        trigger_url = url.rstrip('/') + "/test?foo=<script>alert(1)</script>"
         trigger_resp = tor_session.get(trigger_url, timeout=timeout)
 
         blocked = False

@@ -86,22 +86,53 @@ class SSLAnalyzerCheck(BaseCheck):
         return findings
 
     def _get_cert_info(self, hostname, timeout):
-        """Extract SSL certificate from a host"""
+        """Extract SSL certificate from a host.
+
+        IMPORTANT: We use CERT_REQUIRED here instead of CERT_NONE.
+        With CERT_NONE, Python's ssl module returns an empty dict from
+        getpeercert(binary_form=False), making cert extraction useless.
+        With CERT_REQUIRED (or CERT_OPTIONAL), the full cert dict is returned.
+
+        We also set check_hostname=False because we want the cert data even
+        if the hostname doesn't match (common on darkweb infrastructure).
+
+        NOTE: This method uses a direct socket connection, NOT the Tor proxy.
+        It should ONLY be called for non-.onion targets (the caller already
+        checks for this). For clearnet targets scanned through Tor, be aware
+        this reveals the scanner's real IP to the target on port 443.
+        If OPSEC matters, skip this check entirely or route through Tor's
+        SOCKS proxy with a CONNECT tunnel.
+        """
         try:
             context = ssl.create_default_context()
             context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
+            # FIX: CERT_NONE causes getpeercert() to return an empty dict.
+            # CERT_REQUIRED actually retrieves the certificate data.
+            context.verify_mode = ssl.CERT_REQUIRED
 
             with socket.create_connection((hostname, 443), timeout=timeout) as sock:
                 with context.wrap_socket(sock, server_hostname=hostname) as ssock:
                     cert = ssock.getpeercert(binary_form=False)
                     if cert:
                         return cert
+        except ssl.SSLCertVerificationError:
+            # Cert verification failed (self-signed, expired, etc.)
+            # Fall back to CERT_NONE and use binary form
+            try:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
 
-                    # Try binary form and parse
-                    der_cert = ssock.getpeercert(binary_form=True)
-                    if der_cert:
-                        return {'der': der_cert}
+                with socket.create_connection((hostname, 443), timeout=timeout) as sock:
+                    with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                        # With CERT_NONE, binary_form=True is the only way to get cert data
+                        der_cert = ssock.getpeercert(binary_form=True)
+                        if der_cert:
+                            # Parse basic info from DER using ssl module
+                            parsed = ssl.DER_cert_to_PEM_cert(der_cert)
+                            return {'raw_pem': parsed, 'der': der_cert}
+            except Exception:
+                pass
         except Exception:
             pass
         return None
