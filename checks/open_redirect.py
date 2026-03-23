@@ -1,5 +1,5 @@
 from .base_check import BaseCheck
-from urllib.parse import urlencode, urlparse, urljoin
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
 class OpenRedirectCheck(BaseCheck):

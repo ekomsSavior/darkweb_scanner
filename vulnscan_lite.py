@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """
-DarkWeb Vulnerability Scanner - INTERACTIVE CLI
+DarkWeb Vulnerability Scanner - Lite Edition (6 checks)
+
+Stripped-down version of the full scanner for quick recon.
+Only includes: security headers, fingerprinting, sensitive files,
+directory listing, Com764 detection, and session ID tracking.
 """
 
 import cmd
-import sys
-import os
+import csv
 import json
-from datetime import datetime
+import os
+import re
 
-# Import core modules
+from config.logging_config import setup_logging
+from config.settings import REPORT_DIR
 from core.tor_session import TorSession
 from core.target_manager import TargetManager
 from core.scan_engine import ScanEngine
 from core.report_builder import ReportBuilder
-
-# Import checks
 from checks import (
     SecurityHeadersCheck,
     SensitiveFilesCheck,
@@ -25,313 +28,255 @@ from checks import (
     SessionIDTracker,
 )
 
-# Colors
-GREEN = '\033[92m'
-RED = '\033[91m'
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-MAGENTA = '\033[95m'
-CYAN = '\033[96m'
-RESET = '\033[0m'
-BOLD = '\033[1m'
+setup_logging()
 
-class DarkWebScannerCLI(cmd.Cmd):
-    prompt = f'{GREEN}vulnscan>{RESET} '
-    
+LITE_CHECKS = [
+    SecurityHeadersCheck,
+    FingerprintCheck,
+    lambda: SensitiveFilesCheck(wordlist_path="wordlists/sensitive_paths.txt"),
+    DirectoryListingCheck,
+    lambda: Com764Detector(wordlist_path="wordlists/com764_keywords.txt"),
+    SessionIDTracker,
+]
+
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+MAGENTA = "\033[95m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
+BANNER = f"""{MAGENTA}{BOLD}
+ DARKWEB SCANNER LITE (6 checks)
+{RESET}"""
+
+
+def _build_checks():
+    checks = []
+    for factory in LITE_CHECKS:
+        checks.append(factory() if callable(factory) and not isinstance(factory, type) else factory())
+    return checks
+
+
+class LiteCLI(cmd.Cmd):
+    prompt = f"{GREEN}lite>{RESET} "
+
     def __init__(self):
         super().__init__()
-        
-        print(f"{YELLOW}[*] Initializing scanner...{RESET}")
-        
+        print(f"{YELLOW}[*] Initializing lite scanner...{RESET}")
         self.tor_session = TorSession()
         self.target_manager = TargetManager()
-        self.report_builder = ReportBuilder()
+        self.report_builder = ReportBuilder(report_dir=REPORT_DIR)
         self.scan_engine = ScanEngine(
-            self.tor_session,
-            self.target_manager,
-            self.report_builder
+            self.tor_session, self.target_manager, self.report_builder
         )
-        
-        # Register checks
-        checks = [
-            SecurityHeadersCheck(),
-            FingerprintCheck(),
-            SensitiveFilesCheck(wordlist_path="wordlists/sensitive_paths.txt"),
-            DirectoryListingCheck(),
-            Com764Detector(wordlist_path="wordlists/com764_keywords.txt"),
-            SessionIDTracker(),
-        ]
-        self.scan_engine.register_checks(checks)
-        
-        self.show_banner()
-    
-    def show_banner(self):
-        print(f"""{MAGENTA}{BOLD}
-╔════════════════════════════════════════════╗
-║    DARKWEB VULNERABILITY SCANNER v1.0     ║
-║         INTERACTIVE THREAT INTEL           ║
-╚════════════════════════════════════════════╝{RESET}
-        """)
-    
+        self.scan_engine.register_checks(_build_checks())
+        print(BANNER)
+
+    # -- Target management --
+
     def do_targets(self, arg):
         """Show all loaded targets"""
         targets = self.target_manager.get_targets()
         if not targets:
             print(f"{YELLOW}No targets loaded{RESET}")
             return
-        print(f"\n{CYAN}Loaded targets ({len(targets)}):{RESET}")
-        for i, t in enumerate(targets, 1):
-            print(f"  {i}. {t}")
-        print()
-    
+        for i, target in enumerate(targets, 1):
+            print(f"  {i}. {target}")
+
     def do_add(self, arg):
         """Add a target - usage: add <url>"""
         if not arg:
-            print(f"{RED}Error: Specify a URL{RESET}")
+            print(f"{RED}Usage: add <url>{RESET}")
             return
-        self.target_manager.add_target(arg)
-        print(f"{GREEN}[+] Added: {arg}{RESET}")
-    
+        self.target_manager.add_target(arg.strip())
+        print(f"{GREEN}[+] Added: {arg.strip()}{RESET}")
+
     def do_load(self, arg):
-        """Load targets from text file (one per line) - usage: load <filename>"""
-        if not arg:
-            print(f"{RED}Error: Specify filename{RESET}")
+        """Load targets from a text file (one per line)"""
+        if not arg or not os.path.exists(arg):
+            print(f"{RED}Usage: load <file>  (file not found){RESET}")
             return
         self.target_manager.load_from_file(arg)
-        print(f"{GREEN}[+] Loaded {self.target_manager.get_count()} targets from text file{RESET}")
-    
+        print(f"{GREEN}[+] {self.target_manager.get_count()} targets loaded{RESET}")
+
     def do_upload(self, arg):
-        """Load targets from JSON or CSV file. Auto-detects format.
-           JSON: array of strings or objects with 'url' field.
-           CSV: first column contains URLs.
-           Usage: upload <filename>"""
-        if not arg:
-            print(f"{RED}Error: Specify filename{RESET}")
+        """Load targets from JSON or CSV file (auto-detect by extension)"""
+        if not arg or not os.path.exists(arg):
+            print(f"{RED}Usage: upload <file.json|file.csv>{RESET}")
             return
-        
-        if not os.path.exists(arg):
-            print(f"{RED}Error: File not found: {arg}{RESET}")
-            return
-        
         try:
-            if arg.endswith('.json'):
-                self._load_json_targets(arg)
-            elif arg.endswith('.csv'):
-                self._load_csv_targets(arg)
+            if arg.endswith(".json"):
+                self._load_json(arg)
+            elif arg.endswith(".csv"):
+                self._load_csv(arg)
             else:
-                print(f"{RED}Error: Unsupported file type. Use .json or .csv{RESET}")
+                print(f"{RED}Unsupported format. Use .json or .csv{RESET}")
                 return
-            print(f"{GREEN}[+] Loaded {self.target_manager.get_count()} targets from {arg}{RESET}")
-        except Exception as e:
-            print(f"{RED}Error loading file: {e}{RESET}")
-    
-    def _load_json_targets(self, filename):
-        """Extract URLs from JSON file"""
-        with open(filename, 'r') as f:
-            data = json.load(f)
-        
+            print(f"{GREEN}[+] {self.target_manager.get_count()} targets loaded from {arg}{RESET}")
+        except Exception as exc:
+            print(f"{RED}Error: {exc}{RESET}")
+
+    def _load_json(self, path):
+        with open(path) as fh:
+            data = json.load(fh)
         urls = []
-        
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, str):
                     urls.append(item)
-                elif isinstance(item, dict) and 'url' in item:
-                    urls.append(item['url'])
-                elif isinstance(item, dict) and 'domain' in item:
-                    urls.append(item['domain'])
-                elif isinstance(item, dict) and 'onion' in item:
-                    urls.append(item['onion'])
+                elif isinstance(item, dict):
+                    urls.append(item.get("url") or item.get("domain") or item.get("onion", ""))
         elif isinstance(data, dict):
-            # Try common keys
-            for key in ['urls', 'targets', 'domains', 'sites', 'onions']:
+            for key in ("urls", "targets", "domains", "sites", "onions"):
                 if key in data and isinstance(data[key], list):
-                    urls.extend([str(u) for u in data[key] if u])
+                    urls.extend(str(u) for u in data[key] if u)
                     break
             else:
-                # Fallback: search entire JSON for .onion strings
-                import re
-                content = json.dumps(data)
-                urls = re.findall(r'[a-zA-Z0-9]{56}\.onion', content)
-                urls = [f"http://{u}" for u in urls]
-        
-        # Clean and add each URL
+                urls = [f"http://{m}" for m in re.findall(r"[a-z2-7]{56}\.onion", json.dumps(data))]
         for url in urls:
-            if url and isinstance(url, str):
-                url = url.strip()
-                if url:
-                    self.target_manager.add_target(url)
-    
-    def _load_csv_targets(self, filename):
-        """Extract URLs from CSV file"""
-        import csv
-        with open(filename, 'r') as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if row and row[0].strip():
-                    url = row[0].strip()
-                    if url and not url.startswith('#'):
-                        self.target_manager.add_target(url)
-    
+            if url and url.strip():
+                self.target_manager.add_target(url.strip())
+
+    def _load_csv(self, path):
+        with open(path) as fh:
+            for row in csv.reader(fh):
+                if row and row[0].strip() and not row[0].startswith("#"):
+                    self.target_manager.add_target(row[0].strip())
+
     def do_remove(self, arg):
-        """Remove target by number - usage: remove <number>"""
+        """Remove target by number"""
         try:
             idx = int(arg) - 1
             targets = self.target_manager.get_targets()
             if 0 <= idx < len(targets):
-                target = targets[idx]
-                self.target_manager.remove_target(target)
-                print(f"{GREEN}[+] Removed target {arg}{RESET}")
+                self.target_manager.remove_target(targets[idx])
+                print(f"{GREEN}[+] Removed{RESET}")
             else:
-                print(f"{RED}Error: Invalid number{RESET}")
-        except:
-            print(f"{RED}Error: Invalid number{RESET}")
-    
+                print(f"{RED}Invalid number{RESET}")
+        except (ValueError, IndexError):
+            print(f"{RED}Usage: remove <number>{RESET}")
+
+    def do_clear(self, arg):
+        """Clear all targets"""
+        self.target_manager.clear()
+        print(f"{GREEN}[+] Cleared{RESET}")
+
+    # -- Check management --
+
     def do_checks(self, arg):
-        """List all available checks"""
-        print(f"\n{CYAN}Available checks:{RESET}")
+        """List available checks"""
         for i, check in enumerate(self.scan_engine.checks, 1):
-            status = f"{GREEN}[ON]{RESET}" if check.enabled else f"{RED}[OFF]{RESET}"
-            print(f"  {i}. {status} {check.name}")
-            print(f"     {check.description}")
-        print()
-    
+            status = f"{GREEN}ON{RESET}" if check.enabled else f"{RED}OFF{RESET}"
+            print(f"  {i}. [{status}] {check.name}")
+
     def do_enable(self, arg):
-        """Enable a check by number - usage: enable <number>"""
+        """Enable a check by number or 'all'"""
+        if arg.lower() == "all":
+            for check in self.scan_engine.checks:
+                check.enabled = True
+            print(f"{GREEN}[+] All enabled{RESET}")
+            return
         try:
-            idx = int(arg) - 1
-            self.scan_engine.checks[idx].enabled = True
-            print(f"{GREEN}[+] Enabled {self.scan_engine.checks[idx].name}{RESET}")
-        except:
-            print(f"{RED}Error: Invalid number{RESET}")
-    
+            self.scan_engine.checks[int(arg) - 1].enabled = True
+            print(f"{GREEN}[+] Enabled{RESET}")
+        except (ValueError, IndexError):
+            print(f"{RED}Usage: enable <number|all>{RESET}")
+
     def do_disable(self, arg):
-        """Disable a check by number - usage: disable <number>"""
+        """Disable a check by number or 'all'"""
+        if arg.lower() == "all":
+            for check in self.scan_engine.checks:
+                check.enabled = False
+            print(f"{YELLOW}[-] All disabled{RESET}")
+            return
         try:
-            idx = int(arg) - 1
-            self.scan_engine.checks[idx].enabled = False
-            print(f"{YELLOW}[-] Disabled {self.scan_engine.checks[idx].name}{RESET}")
-        except:
-            print(f"{RED}Error: Invalid number{RESET}")
-    
+            self.scan_engine.checks[int(arg) - 1].enabled = False
+            print(f"{YELLOW}[-] Disabled{RESET}")
+        except (ValueError, IndexError):
+            print(f"{RED}Usage: disable <number|all>{RESET}")
+
+    # -- Config --
+
     def do_config(self, arg):
-        """Show current configuration"""
-        print(f"\n{CYAN}Current configuration:{RESET}")
+        """Show scan configuration"""
         for key, value in self.scan_engine.scan_config.items():
             print(f"  {key}: {value}")
-        print()
-    
+
     def do_set(self, arg):
         """Set config value - usage: set <key> <value>"""
-        args = arg.split()
-        if len(args) != 2:
-            print(f"{RED}Usage: set delay 2{RESET}")
+        parts = arg.split()
+        if len(parts) != 2:
+            print(f"{RED}Usage: set <key> <value>{RESET}")
             return
-        key, value = args
+        key, value = parts
         try:
-            if key in ['delay', 'threads', 'timeout']:
+            if key in ("delay", "threads", "timeout", "rotate_circuit_every", "max_depth"):
                 value = int(value)
+            elif key in ("follow_redirects", "check_https", "verify_ssl"):
+                value = value.lower() in ("true", "1", "yes")
             self.scan_engine.set_config(**{key: value})
             print(f"{GREEN}[+] {key} = {value}{RESET}")
-        except:
+        except (ValueError, TypeError, KeyError):
             print(f"{RED}Error setting {key}{RESET}")
-    
+
+    # -- Scanning --
+
     def do_scan(self, arg):
-        """Start scanning all targets"""
+        """Scan all loaded targets"""
         if self.target_manager.get_count() == 0:
-            print(f"{RED}Error: No targets loaded{RESET}")
+            print(f"{RED}No targets loaded{RESET}")
             return
-        
-        print(f"\n{YELLOW}Ready to scan {self.target_manager.get_count()} targets{RESET}")
-        confirm = input(f"{YELLOW}Start scan? (y/n): {RESET}")
-        if confirm.lower() != 'y':
-            print(f"{YELLOW}Scan cancelled{RESET}")
-            return
-        
         self.report_builder.start_scan()
         self.scan_engine.scan_all()
         self.report_builder.end_scan()
-        
         summary = self.report_builder.get_summary()
-        print(f"\n{GREEN}[+] Scan complete!{RESET}")
-        print(f"  Targets with findings: {summary['targets_with_findings']}")
-        print(f"  Total findings: {summary['total_findings']}")
-    
+        print(f"\n{GREEN}[+] Done - {summary['total_findings']} findings across {summary['targets_with_findings']} targets{RESET}")
+
     def do_report(self, arg):
-        """Generate report - usage: report [json|text|csv]"""
-        if not arg:
-            arg = 'text'
-        
-        if arg == 'json':
-            self.report_builder.export_json()
-        elif arg == 'text':
-            self.report_builder.export_text()
-        elif arg == 'csv':
-            self.report_builder.export_csv()
+        """Generate report - usage: report [json|text|csv|md|all]"""
+        fmt = arg.strip().lower() or "text"
+        exporters = {
+            "json": self.report_builder.export_json,
+            "text": self.report_builder.export_text,
+            "csv": self.report_builder.export_csv,
+            "md": self.report_builder.export_markdown,
+        }
+        if fmt == "all":
+            for fn in exporters.values():
+                fn()
+        elif fmt in exporters:
+            exporters[fmt]()
         else:
-            print(f"{RED}Error: Use json, text, or csv{RESET}")
-    
-    def do_clear(self, arg):
-        """Clear all targets"""
-        confirm = input(f"{YELLOW}Clear all targets? (y/n): {RESET}")
-        if confirm.lower() == 'y':
-            self.target_manager.clear()
-            print(f"{GREEN}[+] All targets cleared{RESET}")
-    
+            print(f"{RED}Formats: json, text, csv, md, all{RESET}")
+
+    # -- Misc --
+
     def do_rotate(self, arg):
         """Rotate Tor circuit"""
-        if self.tor_session.rotate_circuit():
-            print(f"{GREEN}[+] Circuit rotated{RESET}")
-        else:
-            print(f"{RED}[-] Rotation failed{RESET}")
-    
+        ok = self.tor_session.rotate_circuit()
+        print(f"{GREEN}[+] Rotated{RESET}" if ok else f"{RED}[-] Failed{RESET}")
+
     def do_status(self, arg):
         """Show scanner status"""
-        print(f"\n{CYAN}Scanner Status:{RESET}")
-        print(f"  Targets: {self.target_manager.get_count()}")
-        print(f"  Checks: {len(self.scan_engine.checks)}")
-        print(f"  Tor circuits: {self.tor_session.circuit_count}")
-        print()
-    
-    def do_help(self, arg):
-        """Show available commands"""
-        print(f"""
-{CYAN}Available commands:{RESET}
-  {GREEN}targets{RESET}          - Show loaded targets
-  {GREEN}add <url>{RESET}        - Add a target
-  {GREEN}load <file>{RESET}      - Load targets from text file (one per line)
-  {GREEN}upload <file>{RESET}    - Load targets from JSON or CSV file (auto-detect)
-  {GREEN}remove <n>{RESET}       - Remove target by number
-  {GREEN}checks{RESET}           - List available checks
-  {GREEN}enable <n>{RESET}       - Enable a check
-  {GREEN}disable <n>{RESET}      - Disable a check
-  {GREEN}config{RESET}           - Show configuration
-  {GREEN}set <key> <val>{RESET}  - Set config value
-  {GREEN}scan{RESET}             - Start scanning
-  {GREEN}report [fmt]{RESET}     - Generate report (text/json/csv)
-  {GREEN}clear{RESET}            - Clear all targets
-  {GREEN}rotate{RESET}           - Rotate Tor circuit
-  {GREEN}status{RESET}           - Show scanner status
-  {GREEN}exit{RESET}             - Exit scanner
-        """)
-    
-    def do_exit(self, arg):
-        """Exit the scanner"""
-        print(f"{YELLOW}Shutting down...{RESET}")
-        self.tor_session.close()
-        print(f"{GREEN}Goodbye!{RESET}")
-        return True
-    
-    def do_quit(self, arg):
-        """Exit the scanner"""
-        return self.do_exit(arg)
-    
-    def default(self, line):
-        print(f"{RED}Unknown command: {line}{RESET}")
-        print(f"{CYAN}Type 'help' for available commands{RESET}")
+        print(f"  Targets : {self.target_manager.get_count()}")
+        print(f"  Checks  : {len(self.scan_engine.checks)}")
+        print(f"  Requests: {self.tor_session.circuit_count}")
 
-if __name__ == '__main__':
+    def do_exit(self, arg):
+        """Exit"""
+        self.tor_session.close()
+        return True
+
+    do_quit = do_exit
+
+    def default(self, line):
+        print(f"{RED}Unknown: {line}. Type help.{RESET}")
+
+
+if __name__ == "__main__":
     try:
-        DarkWebScannerCLI().cmdloop()
+        LiteCLI().cmdloop()
     except KeyboardInterrupt:
-        print(f"\n{YELLOW}Interrupted{RESET}")
+        print(f"\n{YELLOW}Bye{RESET}")

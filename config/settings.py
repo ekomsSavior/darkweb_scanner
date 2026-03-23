@@ -1,9 +1,13 @@
 # Scanner configuration settings
+import os
 
 # Tor settings
-TOR_PROXY_PORT = 9050
-TOR_CONTROL_PORT = 9051
-TOR_PASSWORD = None  # Set if using password authentication
+# FIX: Use environment variables for sensitive config instead of hardcoding.
+# Set TOR_PASSWORD via: export TOR_PASSWORD=yourpassword
+# Hardcoding passwords in source means anyone with repo access sees them.
+TOR_PROXY_PORT = int(os.environ.get('TOR_PROXY_PORT', 9050))
+TOR_CONTROL_PORT = int(os.environ.get('TOR_CONTROL_PORT', 9051))
+TOR_PASSWORD = os.environ.get('TOR_PASSWORD')
 
 # Default scan settings
 DEFAULT_SCAN_CONFIG = {
@@ -18,10 +22,13 @@ DEFAULT_SCAN_CONFIG = {
 }
 
 # Paths
-DATA_DIR = 'data'
-REPORT_DIR = 'reports'
-WORDLIST_DIR = 'wordlists'
-STATE_DIR = 'state'
+# FIX: Relative paths break when the scanner is run from a different working directory.
+# All dirs are now relative to the project root (where this file lives), not cwd.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(_PROJECT_ROOT, 'data')
+REPORT_DIR = os.path.join(_PROJECT_ROOT, 'reports')
+WORDLIST_DIR = os.path.join(_PROJECT_ROOT, 'wordlists')
+STATE_DIR = os.path.join(_PROJECT_ROOT, 'state')
 
 # Risk thresholds
 RISK_THRESHOLDS = {

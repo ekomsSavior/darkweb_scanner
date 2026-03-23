@@ -44,7 +44,7 @@ class PGPExtractorCheck(BaseCheck):
                 findings.append({
                     'check': self.name,
                     'severity': 'high',
-                    'finding': f"PGP public key block found",
+                    'finding': "PGP public key block found",
                     'detail': '\n'.join(details),
                     'url': url,
                     'data': {'pgp_block': block[:500] + '...' if len(block) > 500 else block}

@@ -61,7 +61,7 @@ class SensitiveFilesCheck(BaseCheck):
         if resp and resp.status_code == 200:
             return {
                 'size': len(resp.content),
-                'hash': hashlib.md5(resp.content).hexdigest()
+                'hash': hashlib.sha256(resp.content).hexdigest()
             }
         return None
 
@@ -130,7 +130,7 @@ class SensitiveFilesCheck(BaseCheck):
                             'check': self.name,
                             'severity': 'info',
                             'finding': f"Access forbidden: {path}",
-                            'detail': f'File may exist but access is forbidden (403)',
+                            'detail': 'File may exist but access is forbidden (403)',
                             'url': url,
                             'status_code': status
                         })
@@ -140,12 +140,12 @@ class SensitiveFilesCheck(BaseCheck):
                             'check': self.name,
                             'severity': 'low',
                             'finding': f"Authentication required: {path}",
-                            'detail': f'Path requires authentication (401) - may contain sensitive data',
+                            'detail': 'Path requires authentication (401) - may contain sensitive data',
                             'url': url,
                             'status_code': status
                         })
 
-            except Exception as e:
+            except Exception:
                 pass
 
         return findings

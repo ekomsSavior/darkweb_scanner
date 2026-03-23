@@ -103,9 +103,8 @@ class TorSession:
             try:
                 self.controller.signal(stem.Signal.NEWNYM)
                 time.sleep(5)
-                self.circuit_count += 1
                 self._rotate_user_agent()
-                logger.info(f"Circuit rotated. Total circuits: {self.circuit_count}")
+                logger.info(f"Circuit rotated. Request count: {self.circuit_count}")
                 return True
             except Exception as e:
                 logger.error(f"Circuit rotation failed: {e}")
@@ -119,15 +118,17 @@ class TorSession:
         if '.onion' in url:
             url = url.replace('https://', 'http://')
 
-        # Rotate circuit periodically
+        # FIX: circuit_count must only be incremented here, not in rotate_circuit().
+        # Previously it was incremented in both places, causing the modulo check
+        # to desync (count goes up by 2 on rotation instead of 1).
+        # The counter tracks total requests made, rotation is just a side effect.
+        self.circuit_count += 1
         if self.controller and self.tor_available:
             if self.circuit_count > 0 and self.circuit_count % rotate_every == 0:
                 self.rotate_circuit()
 
         try:
             response = self.session.get(url, timeout=timeout, allow_redirects=True)
-            if self.controller and self.tor_available:
-                self.circuit_count += 1
             return response
         except requests.exceptions.Timeout:
             logger.warning(f"Timeout: {url}")

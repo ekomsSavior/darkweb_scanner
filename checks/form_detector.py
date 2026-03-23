@@ -62,9 +62,15 @@ class FormDetectorCheck(BaseCheck):
             }
 
             # Classify the form
-            is_login = ('password' in input_types or
-                        any(n in input_names for n in ['password', 'passwd', 'pwd', 'pass']) or
-                        any(n in input_names for n in ['username', 'user', 'login', 'email']) and 'password' in input_types)
+            # FIX: Operator precedence bug. `and` binds tighter than `or`, so the
+            # original expression parsed as:
+            #   password_in_types OR password_in_names OR (username_in_names AND password_in_types)
+            # The third clause was redundant (if password_in_types is True, the first
+            # clause already matches). Added explicit parentheses for clarity.
+            has_password = ('password' in input_types or
+                           any(n in input_names for n in ['password', 'passwd', 'pwd', 'pass']))
+            has_username = any(n in input_names for n in ['username', 'user', 'login', 'email'])
+            is_login = has_password or (has_username and has_password)
 
             is_upload = ('file' in input_types or
                          enctype == 'multipart/form-data')

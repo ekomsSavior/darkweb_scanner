@@ -6,10 +6,9 @@ def is_valid_onion(url):
     Validate if a URL is a proper .onion address
     Returns: (bool, str) - (is_valid, reason if invalid)
     """
-    # TEMP FIX - accept any .onion
-    if '.onion' in url:
-        return True, "Valid .onion domain (bypassed)"
-    
+    # FIX: The "TEMP FIX" above was bypassing ALL validation.
+    # Any string containing ".onion" anywhere (even "not_an_onion.onion.evil.com")
+    # would pass. The actual validation below is correct and should run.
     if not url:
         return False, "Empty URL"
     
@@ -81,7 +80,7 @@ def is_valid_port(port):
     try:
         port = int(port)
         return 1 <= port <= 65535
-    except:
+    except (ValueError, TypeError):
         return False
 
 def validate_hostname(hostname):

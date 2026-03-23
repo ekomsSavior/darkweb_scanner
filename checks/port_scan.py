@@ -18,9 +18,20 @@ class PortScanCheck(BaseCheck):
         
         # Extract hostname
         host = target.replace('http://', '').replace('https://', '').split('/')[0]
-        
-        print(f"    └─ Port scan in progress (this may take a while)...")
-        
+
+        # FIX: Validate hostname before passing to subprocess.
+        # Without validation, a crafted hostname like "-oN /tmp/evil" would be
+        # interpreted as an nmap flag instead of a target (argument injection).
+        # We reject any hostname starting with "-" and validate the format.
+        if not host or host.startswith('-') or not re.match(r'^[a-zA-Z0-9._-]+$', host):
+            return [{
+                'check': self.name,
+                'severity': 'error',
+                'finding': f"Invalid hostname, skipping port scan: {host[:50]}",
+            }]
+
+        print("    └─ Port scan in progress (this may take a while)...")
+
         try:
             # Use proxychains with nmap
             cmd = [
@@ -30,7 +41,7 @@ class PortScanCheck(BaseCheck):
                 '--max-rtt-timeout', '5000ms',
                 '--min-rate', '10',
                 '--host-timeout', '120s',
-                host
+                '--', host  # "--" prevents host from being parsed as nmap flags
             ]
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)

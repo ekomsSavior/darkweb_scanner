@@ -52,7 +52,6 @@ class JSExtractorCheck(BaseCheck):
         all_endpoints = set()
         all_keys = []
         all_creds = []
-        all_secrets = []
         all_domains = set()
 
         for source_name, js_code in js_sources:

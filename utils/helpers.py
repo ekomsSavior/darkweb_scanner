@@ -18,16 +18,18 @@ def validate_onion_url(url):
         
         # Check length (typical .onion v2 is 16 chars, v3 is 56)
         hostname = parsed.netloc.replace('.onion', '')
+        # FIX: Previously this did `pass` for invalid lengths, which meant
+        # any length was accepted. Onion v2 addresses are 16 chars (base32),
+        # v3 are 56 chars. Anything else is not a valid onion address.
         if len(hostname) not in [16, 56]:
-            # Could still be valid but warn
-            pass
+            return False
         
         # Check for valid characters
         if not re.match(r'^[a-z2-7]+$', hostname):
             return False
         
         return True
-    except:
+    except Exception:
         return False
 
 def extract_domain(url):
@@ -37,7 +39,7 @@ def extract_domain(url):
             url = 'http://' + url
         parsed = urlparse(url)
         return parsed.netloc
-    except:
+    except Exception:
         return url
 
 def strip_html_tags(html):

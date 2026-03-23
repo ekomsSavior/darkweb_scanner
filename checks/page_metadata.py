@@ -97,7 +97,7 @@ class PageMetadataCheck(BaseCheck):
                 'check': self.name,
                 'severity': 'info',
                 'finding': f"Language indicators: {len(lang_indicators)}",
-                'detail': '\n'.join([f"  {l}" for l in lang_indicators]),
+                'detail': '\n'.join([f"  {lang}" for lang in lang_indicators]),
                 'url': url,
                 'data': {'languages': lang_indicators}
             })
@@ -128,9 +128,10 @@ class PageMetadataCheck(BaseCheck):
             })
 
         # === Comments in HTML ===
-        comments = soup.find_all(string=lambda text: isinstance(text, type(soup.new_string(''))) is False
-                                   and hasattr(text, 'prefix') is False)
-        # Better approach: use Comment type
+        # FIX: Removed dead code above. The old approach used a broken lambda
+        # that checked `isinstance(...) is False` (identity check, not boolean)
+        # and `hasattr(text, 'prefix') is False` (makes no sense for Comment detection).
+        # The variable was assigned but never used. Using Comment type directly.
         from bs4 import Comment
         html_comments = soup.find_all(string=lambda text: isinstance(text, Comment))
 
