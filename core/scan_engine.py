@@ -1,10 +1,9 @@
-from typing import List, Dict, Any
+from typing import Dict, Any
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
-from core.tor_session import TorSession
 from checks.base_check import BaseCheck
 from config.settings import DEFAULT_SCAN_CONFIG
 from core.scan_state import ScanState
@@ -118,7 +117,7 @@ class ScanEngine:
         self.stats['end_time'] = time.time()
         duration = self.stats['end_time'] - self.stats['start_time']
 
-        print(f"\n[+] Resumed scan complete!")
+        print("\n[+] Resumed scan complete!")
         print(f"    Targets scanned: {self.stats['targets_scanned']}")
         print(f"    Checks run: {self.stats['checks_run']}")
         print(f"    Findings: {self.stats['findings_count']}")
@@ -147,12 +146,12 @@ class ScanEngine:
             block_sigs = ['blocked', 'forbidden', 'access denied', 'ban',
                            'captcha', 'challenge', 'cloudflare', 'ddos-guard']
             if resp.text and any(sig in resp.text.lower() for sig in block_sigs):
-                print(f"    \033[91m[!] BLOCKED (403 with block signature)\033[0m")
+                print("    \033[91m[!] BLOCKED (403 with block signature)\033[0m")
                 return 'blocked'
 
         if resp.status_code == 503:
             if resp.text and ('captcha' in resp.text.lower() or 'challenge' in resp.text.lower()):
-                print(f"    \033[93m[!] CAPTCHA/CHALLENGE detected (503)\033[0m")
+                print("    \033[93m[!] CAPTCHA/CHALLENGE detected (503)\033[0m")
                 return 'captcha'
 
         return 'ok'
@@ -166,7 +165,7 @@ class ScanEngine:
         # Pre-scan rate limit check
         status = self._check_rate_limit(target, self.tor_session)
         if status == 'unreachable':
-            print(f"    \033[91m[!] Target unreachable — skipping\033[0m")
+            print("    \033[91m[!] Target unreachable — skipping\033[0m")
             findings.append({
                 'check': 'Rate Limit Detection',
                 'severity': 'error',
@@ -179,7 +178,7 @@ class ScanEngine:
             return {'target': target, 'timestamp': time.time(), 'findings': findings}
 
         if status == 'rate_limited':
-            print(f"    \033[93m[!] Rate limited — rotating circuit and waiting 15s...\033[0m")
+            print("    \033[93m[!] Rate limited — rotating circuit and waiting 15s...\033[0m")
             self.tor_session.rotate_circuit()
             time.sleep(15)
             findings.append({
@@ -191,7 +190,7 @@ class ScanEngine:
             })
 
         if status == 'blocked':
-            print(f"    \033[91m[!] Blocked — rotating circuit...\033[0m")
+            print("    \033[91m[!] Blocked — rotating circuit...\033[0m")
             self.tor_session.rotate_circuit()
             time.sleep(10)
             findings.append({
@@ -248,7 +247,7 @@ class ScanEngine:
 
                 # If 3+ checks fail in a row, we're probably being blocked
                 if consecutive_failures >= 3:
-                    print(f"    \033[91m[!] 3+ consecutive failures — target may be blocking. Rotating circuit.\033[0m")
+                    print("    \033[91m[!] 3+ consecutive failures — target may be blocking. Rotating circuit.\033[0m")
                     self.tor_session.rotate_circuit()
                     time.sleep(10)
                     consecutive_failures = 0
@@ -319,7 +318,7 @@ class ScanEngine:
         self.stats['end_time'] = time.time()
         duration = self.stats['end_time'] - self.stats['start_time']
 
-        print(f"\n[+] Scan complete!")
+        print("\n[+] Scan complete!")
         print(f"    Targets scanned: {self.stats['targets_scanned']}")
         print(f"    Checks run: {self.stats['checks_run']}")
         print(f"    Findings: {self.stats['findings_count']}")
@@ -368,7 +367,7 @@ class ScanEngine:
         self.stats['end_time'] = time.time()
         duration = self.stats['end_time'] - self.stats['start_time']
 
-        print(f"\n[+] Parallel scan complete!")
+        print("\n[+] Parallel scan complete!")
         print(f"    Targets scanned: {self.stats['targets_scanned']}")
         print(f"    Checks run: {self.stats['checks_run']}")
         print(f"    Findings: {self.stats['findings_count']}")

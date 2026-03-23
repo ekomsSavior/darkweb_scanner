@@ -61,7 +61,7 @@ class CORSCheck(BaseCheck):
                             'check': self.name,
                             'severity': sev,
                             'finding': f"CORS origin reflection: {evil_origin} reflected back",
-                            'detail': f'Server echoes arbitrary Origin header as ACAO'
+                            'detail': 'Server echoes arbitrary Origin header as ACAO'
                                       + (' with credentials allowed — full account takeover risk' if creds_allowed else ''),
                             'url': url,
                             'data': {

@@ -80,7 +80,7 @@ def is_valid_port(port):
     try:
         port = int(port)
         return 1 <= port <= 65535
-    except:
+    except (ValueError, TypeError):
         return False
 
 def validate_hostname(hostname):

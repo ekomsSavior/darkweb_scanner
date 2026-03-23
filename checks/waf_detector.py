@@ -1,5 +1,4 @@
 from .base_check import BaseCheck
-import re
 
 class WAFDetectorCheck(BaseCheck):
     """Detect Web Application Firewalls and security products"""

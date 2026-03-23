@@ -30,7 +30,7 @@ class PortScanCheck(BaseCheck):
                 'finding': f"Invalid hostname, skipping port scan: {host[:50]}",
             }]
 
-        print(f"    └─ Port scan in progress (this may take a while)...")
+        print("    └─ Port scan in progress (this may take a while)...")
 
         try:
             # Use proxychains with nmap

@@ -1,7 +1,6 @@
 from .base_check import BaseCheck
 import ssl
 import socket
-import re
 from datetime import datetime
 
 class SSLAnalyzerCheck(BaseCheck):
@@ -192,7 +191,7 @@ class SSLAnalyzerCheck(BaseCheck):
                     findings.append({
                         'check': self.name,
                         'severity': 'info',
-                        'finding': f"Self-signed certificate (issuer = subject)",
+                        'finding': "Self-signed certificate (issuer = subject)",
                         'url': url
                     })
                 else:
@@ -229,8 +228,20 @@ class SSLAnalyzerCheck(BaseCheck):
                 })
 
         # Validity dates
+        # FIX: not_before was fetched but never used. The issue date reveals
+        # when the operator set up TLS - useful intel for timeline analysis.
         not_before = cert.get('notBefore', '')
         not_after = cert.get('notAfter', '')
+
+        if not_before:
+            findings.append({
+                'check': self.name,
+                'severity': 'info',
+                'finding': f"Certificate issued: {not_before}",
+                'detail': 'Issue date can help establish when the service was set up',
+                'url': url
+            })
+
         if not_after:
             try:
                 expiry = datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')

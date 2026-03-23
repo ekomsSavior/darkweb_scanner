@@ -39,7 +39,7 @@ class FingerprintCheck(BaseCheck):
                     'check': self.name,
                     'severity': 'info',
                     'finding': f"{header}: {value}",
-                    'detail': f'Server reveals technology information',
+                    'detail': 'Server reveals technology information',
                     'url': url
                 })
         

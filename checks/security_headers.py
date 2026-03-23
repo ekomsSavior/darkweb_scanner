@@ -182,7 +182,11 @@ class SecurityHeadersCheck(BaseCheck):
         pragma = headers.get('Pragma', '')
         expires = headers.get('Expires', '')
 
-        if not cache_control:
+        # FIX: pragma and expires were fetched but never checked.
+        # Pragma: no-cache is the HTTP/1.0 equivalent of Cache-Control: no-store.
+        # Expires: 0 or past date means "already expired, don't cache".
+        # If both are missing alongside Cache-Control, caching posture is worse.
+        if not cache_control and not pragma:
             findings.append({
                 'check': self.name,
                 'severity': 'low',
@@ -196,7 +200,7 @@ class SecurityHeadersCheck(BaseCheck):
                 findings.append({
                     'check': self.name,
                     'severity': 'medium',
-                    'finding': f"Cache-Control: public (responses cached publicly)",
+                    'finding': "Cache-Control: public (responses cached publicly)",
                     'detail': f'Value: {cache_control}',
                     'url': url
                 })
@@ -208,6 +212,23 @@ class SecurityHeadersCheck(BaseCheck):
                     'detail': f'Value: {cache_control}',
                     'url': url
                 })
+
+        if pragma and 'no-cache' in pragma.lower():
+            findings.append({
+                'check': self.name,
+                'severity': 'info',
+                'finding': 'Pragma: no-cache set (HTTP/1.0 cache prevention)',
+                'detail': 'Legacy header, should be paired with Cache-Control: no-store for modern browsers',
+                'url': url
+            })
+
+        if expires and expires.strip() in ['0', '-1']:
+            findings.append({
+                'check': self.name,
+                'severity': 'info',
+                'finding': f'Expires: {expires} (immediate expiration)',
+                'url': url
+            })
 
         return findings
 
@@ -239,7 +260,7 @@ class SecurityHeadersCheck(BaseCheck):
                     'check': self.name,
                     'severity': severity,
                     'finding': f"Info leak: {header}: {value}",
-                    'detail': f'Header reveals internal technology/version information',
+                    'detail': 'Header reveals internal technology/version information',
                     'url': url
                 })
 

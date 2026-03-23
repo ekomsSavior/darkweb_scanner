@@ -7,23 +7,14 @@ import cmd
 import sys
 import os
 import argparse
-from datetime import datetime
 
 # Import config
-from config.settings import TOR_PROXY_PORT, TOR_CONTROL_PORT, TOR_PASSWORD, DEFAULT_SCAN_CONFIG, REPORT_DIR
+from config.settings import TOR_PROXY_PORT, TOR_CONTROL_PORT, TOR_PASSWORD, REPORT_DIR
 from config.logging_config import setup_logging
-
-# FIX: Initialize logging so that all logger.info/warning/error calls
-# throughout the codebase actually produce output instead of going nowhere.
-setup_logging()
-
-# Import core modules
 from core.tor_session import TorSession
 from core.target_manager import TargetManager
 from core.scan_engine import ScanEngine
 from core.report_builder import ReportBuilder
-
-# Import checks
 from checks import (
     SiteChecker,
     SecurityHeadersCheck,
@@ -547,6 +538,9 @@ def run_batch(args):
 
 
 if __name__ == '__main__':
+    # FIX: Initialize logging before anything else so all logger calls produce output.
+    setup_logging()
+
     parser = argparse.ArgumentParser(description='DarkWeb Vulnerability Scanner v2.0')
     parser.add_argument('-t', '--target', help='Single target URL')
     parser.add_argument('-T', '--targets', help='Target list file')

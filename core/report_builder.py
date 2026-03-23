@@ -207,7 +207,7 @@ class ReportBuilder:
 
         try:
             with open(filepath, 'w') as f:
-                f.write(f"# DarkWeb Scan Report\n\n")
+                f.write("# DarkWeb Scan Report\n\n")
                 f.write(f"**Scan ID:** `{self.metadata['scan_id']}`\n")
                 f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 if self.metadata.get('duration'):
@@ -217,7 +217,7 @@ class ReportBuilder:
                 # Summary
                 summary = self.get_summary()
                 f.write("## Summary\n\n")
-                f.write(f"| Metric | Count |\n|--------|-------|\n")
+                f.write("| Metric | Count |\n|--------|-------|\n")
                 f.write(f"| Targets scanned | {summary['targets_with_findings']} |\n")
                 f.write(f"| Total findings | {summary['total_findings']} |\n")
                 for sev, count in summary['severity_counts'].items():
@@ -234,7 +234,7 @@ class ReportBuilder:
                         id_type, id_value = identifier.split(':', 1)
                         f.write(f"### `{id_value[:50]}`\n")
                         f.write(f"- **Type:** {id_type.replace('_', ' ').title()}\n")
-                        f.write(f"- **Found on:**\n")
+                        f.write("- **Found on:**\n")
                         for t in targets:
                             f.write(f"  - `{t}`\n")
                         f.write("\n")

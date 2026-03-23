@@ -97,7 +97,7 @@ class PageMetadataCheck(BaseCheck):
                 'check': self.name,
                 'severity': 'info',
                 'finding': f"Language indicators: {len(lang_indicators)}",
-                'detail': '\n'.join([f"  {l}" for l in lang_indicators]),
+                'detail': '\n'.join([f"  {lang}" for lang in lang_indicators]),
                 'url': url,
                 'data': {'languages': lang_indicators}
             })
