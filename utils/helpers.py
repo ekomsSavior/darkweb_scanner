@@ -29,7 +29,7 @@ def validate_onion_url(url):
             return False
         
         return True
-    except:
+    except Exception:
         return False
 
 def extract_domain(url):
@@ -39,7 +39,7 @@ def extract_domain(url):
             url = 'http://' + url
         parsed = urlparse(url)
         return parsed.netloc
-    except:
+    except Exception:
         return url
 
 def strip_html_tags(html):

@@ -1,6 +1,5 @@
 import re
 import json
-from urllib.parse import urlparse
 
 def parse_report_pdf(pdf_path):
     """

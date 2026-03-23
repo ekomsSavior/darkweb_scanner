@@ -11,6 +11,11 @@ from datetime import datetime
 
 # Import config
 from config.settings import TOR_PROXY_PORT, TOR_CONTROL_PORT, TOR_PASSWORD, DEFAULT_SCAN_CONFIG, REPORT_DIR
+from config.logging_config import setup_logging
+
+# FIX: Initialize logging so that all logger.info/warning/error calls
+# throughout the codebase actually produce output instead of going nowhere.
+setup_logging()
 
 # Import core modules
 from core.tor_session import TorSession

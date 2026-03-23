@@ -1,5 +1,4 @@
 from .base_check import BaseCheck
-import re
 
 class TechStackCheck(BaseCheck):
     """Comprehensive technology stack detection"""
@@ -51,7 +50,9 @@ class TechStackCheck(BaseCheck):
             html_lower = resp.text.lower()
             for tech, patterns in self.signatures.items():
                 for pattern in patterns:
-                    if pattern.replace('\\', '').lower() in html_lower:
+                    # FIX: Removed .replace('\\', '') - none of the patterns
+                    # contain backslashes, it was dead code.
+                    if pattern.lower() in html_lower:
                         if tech not in detected:
                             detected.append(tech)
                         break

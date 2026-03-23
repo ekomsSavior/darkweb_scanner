@@ -60,7 +60,9 @@ class FingerprintCheck(BaseCheck):
                         break
         
         # Check for generator meta tag
-        gen_match = re.search(r'<meta name="generator" content="([^"]+)"', resp.text)
+        # FIX: resp.text can be None if the response has no body.
+        # re.search() would throw TypeError on None input.
+        gen_match = re.search(r'<meta name="generator" content="([^"]+)"', resp.text) if resp.text else None
         if gen_match:
             findings.append({
                 'check': self.name,

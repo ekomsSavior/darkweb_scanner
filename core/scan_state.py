@@ -5,7 +5,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-STATE_FILE = os.path.join('state', 'scan_state.json')
+# FIX: Removed unused module-level STATE_FILE constant.
+# The ScanState class computes its own path in __init__.
 
 
 class ScanState:
